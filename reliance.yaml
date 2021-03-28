@@ -1,0 +1,112 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: reliance-object-detection-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.4.0, pipelines.kubeflow.org/pipeline_compilation_time: '2021-03-28T14:46:29.104193',
+    pipelines.kubeflow.org/pipeline_spec: '{"description": "saving the container data
+      to the pvc", "name": "Reliance Object Detection"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.4.0}
+spec:
+  entrypoint: reliance-object-detection
+  templates:
+  - name: evaluate-with-hydra
+    container:
+      command: [python, print.py]
+      image: surajmachamasi/customprint:latest
+      volumeMounts:
+      - {mountPath: /obj, name: objectdetection-pvc}
+    inputs:
+      parameters:
+      - {name: objectdetection-pvc-name}
+    volumes:
+    - name: objectdetection-pvc
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.objectdetection-pvc-name}}'}
+  - name: finetuning-with-hydra
+    container:
+      command: [python, finetune.py]
+      image: sagark24/finetune
+      volumeMounts:
+      - {mountPath: /obj, name: objectdetection-pvc}
+    inputs:
+      parameters:
+      - {name: objectdetection-pvc-name}
+    volumes:
+    - name: objectdetection-pvc
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.objectdetection-pvc-name}}'}
+  - name: objectdetection-pvc
+    resource:
+      action: create
+      manifest: |
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: '{{workflow.name}}-template-detection-dev'
+        spec:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 20Gi
+    outputs:
+      parameters:
+      - name: objectdetection-pvc-manifest
+        valueFrom: {jsonPath: '{}'}
+      - name: objectdetection-pvc-name
+        valueFrom: {jsonPath: '{.metadata.name}'}
+      - name: objectdetection-pvc-size
+        valueFrom: {jsonPath: '{.status.capacity.storage}'}
+  - name: preprocessing-the-data
+    container:
+      command: [python, print.py]
+      image: surajmachamasi/customprint:latest
+      volumeMounts:
+      - {mountPath: /obj, name: objectdetection-pvc}
+    inputs:
+      parameters:
+      - {name: objectdetection-pvc-name}
+    volumes:
+    - name: objectdetection-pvc
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.objectdetection-pvc-name}}'}
+  - name: reliance-object-detection
+    dag:
+      tasks:
+      - name: evaluate-with-hydra
+        template: evaluate-with-hydra
+        dependencies: [finetuning-with-hydra, objectdetection-pvc]
+        arguments:
+          parameters:
+          - {name: objectdetection-pvc-name, value: '{{tasks.objectdetection-pvc.outputs.parameters.objectdetection-pvc-name}}'}
+      - name: finetuning-with-hydra
+        template: finetuning-with-hydra
+        dependencies: [objectdetection-pvc, training-the-data]
+        arguments:
+          parameters:
+          - {name: objectdetection-pvc-name, value: '{{tasks.objectdetection-pvc.outputs.parameters.objectdetection-pvc-name}}'}
+      - {name: objectdetection-pvc, template: objectdetection-pvc}
+      - name: preprocessing-the-data
+        template: preprocessing-the-data
+        dependencies: [objectdetection-pvc]
+        arguments:
+          parameters:
+          - {name: objectdetection-pvc-name, value: '{{tasks.objectdetection-pvc.outputs.parameters.objectdetection-pvc-name}}'}
+      - name: training-the-data
+        template: training-the-data
+        dependencies: [objectdetection-pvc, preprocessing-the-data]
+        arguments:
+          parameters:
+          - {name: objectdetection-pvc-name, value: '{{tasks.objectdetection-pvc.outputs.parameters.objectdetection-pvc-name}}'}
+  - name: training-the-data
+    container:
+      command: [python, train.py]
+      image: sagark24/train
+      volumeMounts:
+      - {mountPath: /obj, name: objectdetection-pvc}
+    inputs:
+      parameters:
+      - {name: objectdetection-pvc-name}
+    volumes:
+    - name: objectdetection-pvc
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.objectdetection-pvc-name}}'}
+  arguments:
+    parameters: []
+  serviceAccountName: pipeline-runner

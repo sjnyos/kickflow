@@ -21,14 +21,20 @@ def reliance_object_detection():
           image="surajmachamasi/customprint:latest",
           command=["python","print.py"],
 	  #arguments=["echo 1 | tee /mnt/file1"]
-          pvolumes={"/obj": vop.volume}
+          pvolumes={"/obj": vop.volume},
+          file_outputs={
+            'dataprocessing': '/logs',
+        }
 		)
     train = dsl.ContainerOp(
             name="Training the Data",
             image="sagark24/train",
             command=["python","train.py"],
             #arguments=["echo 1 | tee /mnt/file1"],
-            pvolumes={"/obj": vop.volume}
+            pvolumes={"/obj": vop.volume},
+            file_outputs={
+             'savedmodels': '/trained_model'
+                }
         ).after(preprocess)
    
     finetune = dsl.ContainerOp(

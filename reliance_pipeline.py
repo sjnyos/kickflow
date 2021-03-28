@@ -18,8 +18,8 @@ def reliance_object_detection():
 
     preprocess = dsl.ContainerOp(
 	  name="Preprocessing the Data",
-          image="python",
-          command=["print","dataprocessing remains"],
+          image="surajmachamasi/customprint:latest",
+          command=["python","print.py"],
 	  #arguments=["echo 1 | tee /mnt/file1"]
           pvolumes={"/obj": vop.volume}
 		)
@@ -41,8 +41,8 @@ def reliance_object_detection():
    
     evaluate = dsl.ContainerOp(
             name="evaluate with hydra",
-            image="python",
-            command=["print","evaluate"],
+            image="surajmachamasi/customprint:latest",
+            command=["python","print.py"],
             #arguments=["echo 1 | tee /mnt/file1"],
             pvolumes={"/obj": vop.volume}
         ).after(finetune)

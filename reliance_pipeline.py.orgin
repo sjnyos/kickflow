@@ -1,10 +1,7 @@
 
 import kfp
-import kfx
-
 import kfp.components as components
 import kfp.dsl as dsl
-import kfx.dsl 
 
 helper = kfx.dsl.ArtifactLocationHelper(
     scheme="minio", bucket="mlpipeline", key_prefix="artifacts/"
@@ -15,63 +12,46 @@ helper = kfx.dsl.ArtifactLocationHelper(
     description="saving the container data to the pvc"
 )
 
-def creating_pipeline_metadata( name,description, owner, uri, model_type):
-    return  model = exec.log_output(
-            metadata.Model(
-            name=name,
-            description=description,
-            owner=owner,
-            uri=uri,
-            model_type=model_type,
-            training_framework={
-            "name": "tensorflow",
-            "version": "v1.0"
-            })
-
 def reliance_object_detection():
     
-    vop =  dsl.VolumeOp(
+    vop = dsl.VolumeOp(
         name="objectdetection_pvc",
         resource_name="Template-detection-dev",
-        size="8Gi",
+        size="2Gi",
         modes=dsl.VOLUME_MODE_RWO
     )
-    _creating_pipeline_metadata = creating_pipeline_metadata("Reliance obj","test","test@test.com","gcs://my-bucket/mnist","neural_network")
-    _pre_process = preprocess().add_pvolumes({"/obj": vop.volume}).set_display_name('Preprocessing data')._set_metadata(_creating_pipeline_metadata)
-    _train= train().add_pvolumes({"/obj": vop.volume}).set_display_name('Traning data').after(_pre_process)
-    _finetune= finetune().add_pvolumes({"/obj": vop.volume}).set_display_name('Finetuning data').after(_train)
-    _evaluate= evaluate().add_pvolumes({"/obj": vop.volume}).set_display_name('Evaluatin data').after(_finetune)
 
-
-def preprocess():
-
-    return dsl.ContainerOp(
+    preprocess = dsl.ContainerOp(
 	      name="Preprocessing the Data",
           image="surajmachamasi/customprint:latest",
           command=["python","print.py"],
+	  #arguments=["echo 1 | tee /mnt/file1"]
+          pvolumes={"/obj": vop.volume},
           #file_outputs={ }
-		)
-
-def  train():
- return dsl.ContainerOp(
+		).set_display_name('Preprocess')
+    train = dsl.ContainerOp(
             name="Training the Data",
             image="registry.gitlab.com/automation-jukshio/ml-ops/template-detection-demo/train:v1-slim",
             command=["python","train.py"],
-        )
+            #arguments=["echo 1 | tee /mnt/file1"],
+            pvolumes={"/obj": vop.volume},
+        ).after(preprocess).set_display_name('Traning data')
    
-def  finetune():
-  return dsl.ContainerOp(
+    finetune = dsl.ContainerOp(
             name="Finetuning with hydra",
             image="registry.gitlab.com/automation-jukshio/ml-ops/template-detection-demo/finetune:v1-slim",
-            command=["python","finetune.py"]
-        )
+            command=["python","finetune.py"],
+            #arguments=["echo 1 | tee /mnt/file1"],
+            pvolumes={"/obj": vop.volume}
+        ).after(train).set_display_name('Finetuning')
    
-def  evaluate():
-    return dsl.ContainerOp(
+    evaluate = dsl.ContainerOp(
             name="evaluate with hydra",
             image="surajmachamasi/customprint:latest",
             command=["python","print.py"],
-        )
+            #arguments=["echo 1 | tee /mnt/file1"],
+            pvolumes={"/obj": vop.volume}
+        ).after(finetune).set_display_name('Evaluate')
 
     
 pipeline_func = reliance_object_detection
@@ -82,7 +62,7 @@ arguments = {}
 
 client = kfp.Client()
 run_result = client.create_run_from_pipeline_func(
-    reliance_object_detection,
+    pipeline_func,
     experiment_name=experiment_name,
     run_name=run_name,
     arguments=arguments,

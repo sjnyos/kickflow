@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
   generateName: reliance-object-detection-
-  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.4.0, pipelines.kubeflow.org/pipeline_compilation_time: '2021-03-30T11:48:32.801100',
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.4.0, pipelines.kubeflow.org/pipeline_compilation_time: '2021-03-29T13:01:51.714262',
     pipelines.kubeflow.org/pipeline_spec: '{"description": "saving the container data
       to the pvc", "name": "Reliance Object Detection"}'}
   labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.4.0}
@@ -18,8 +18,6 @@ spec:
     inputs:
       parameters:
       - {name: objectdetection-pvc-name}
-    metadata:
-      annotations: {pipelines.kubeflow.org/task_display_name: Evaluatin data}
     volumes:
     - name: objectdetection-pvc
       persistentVolumeClaim: {claimName: '{{inputs.parameters.objectdetection-pvc-name}}'}
@@ -32,8 +30,6 @@ spec:
     inputs:
       parameters:
       - {name: objectdetection-pvc-name}
-    metadata:
-      annotations: {pipelines.kubeflow.org/task_display_name: Finetuning data}
     volumes:
     - name: objectdetection-pvc
       persistentVolumeClaim: {claimName: '{{inputs.parameters.objectdetection-pvc-name}}'}
@@ -50,7 +46,7 @@ spec:
           - ReadWriteOnce
           resources:
             requests:
-              storage: 2Gi
+              storage: 20Gi
     outputs:
       parameters:
       - name: objectdetection-pvc-manifest
@@ -68,8 +64,6 @@ spec:
     inputs:
       parameters:
       - {name: objectdetection-pvc-name}
-    metadata:
-      annotations: {pipelines.kubeflow.org/task_display_name: Preprocessing data}
     volumes:
     - name: objectdetection-pvc
       persistentVolumeClaim: {claimName: '{{inputs.parameters.objectdetection-pvc-name}}'}
@@ -110,8 +104,6 @@ spec:
     inputs:
       parameters:
       - {name: objectdetection-pvc-name}
-    metadata:
-      annotations: {pipelines.kubeflow.org/task_display_name: Traning data}
     volumes:
     - name: objectdetection-pvc
       persistentVolumeClaim: {claimName: '{{inputs.parameters.objectdetection-pvc-name}}'}
